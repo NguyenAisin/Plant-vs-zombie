@@ -7,6 +7,9 @@ import java.awt.event.MouseMotionListener;
 import java.util.ArrayList;
 import java.util.Random;
 import java.net.URL;
+import java.awt.Shape;
+import java.awt.font.TextLayout;
+import java.awt.geom.AffineTransform;
 
 /**
  * Created by Armin on 6/25/2016.
@@ -415,37 +418,43 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             g2.drawString(text, x, y);
         }
         if (showFinalWaveText) {
-            Graphics2D g2 = (Graphics2D) g;
+
+            Graphics2D g2 = (Graphics2D) g.create();
 
             String text = "FINAL WAVE";
 
-            Font font = new Font("Arial", Font.BOLD, 60);
+            Font font = new Font("Arial", Font.BOLD, 75);
             g2.setFont(font);
+
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
             FontMetrics fm = g2.getFontMetrics();
             int textWidth = fm.stringWidth(text);
 
-            int x = (getWidth() - textWidth) / 2;
-            int y = getHeight() / 2;
+            // Căn giữa
+            int lawnStartX = 60;
+            int lawnWidth = 9 * 100;
+            int lawnStartY = 110;
+            int lawnHeight = 5 * 120;
 
-            java.awt.font.TextLayout tl =
-                    new java.awt.font.TextLayout(text, font, g2.getFontRenderContext());
+            int x = lawnStartX + lawnWidth / 2 - textWidth / 2;
+            int y = lawnStartY + lawnHeight / 2;
 
-            Shape shape = tl.getOutline(null);
+            TextLayout tl = new TextLayout(text, font, g2.getFontRenderContext());
+            Shape shape = tl.getOutline(AffineTransform.getTranslateInstance(x, y));
 
-            g2.translate(x, y);
-
-            // viền đen
+            // Stroke
+            g2.setStroke(new BasicStroke(6f));
             g2.setColor(Color.BLACK);
-            g2.setStroke(new BasicStroke(4));
             g2.draw(shape);
 
-            // fill đỏ
-            g2.setColor(Color.RED);
+            // Fill đỏ
+            g2.setColor(new Color(200, 0, 0));
             g2.fill(shape);
 
-            g2.translate(-x, -y);
-            // Ẩn sau 3 giây
+            g2.dispose();
+            // Ẩn sau 4 giây
             if (System.currentTimeMillis() - finalWaveStartTime > 4000) {
                 showFinalWaveText = false;
             }

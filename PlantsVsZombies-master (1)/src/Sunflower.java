@@ -35,8 +35,8 @@ public class Sunflower extends Plant {
     }
     
     public void resume() {
-    if (sunProduceTimer != null && !sunProduceTimer.isRunning()) {
-        sunProduceTimer.start();
+        if (sunProduceTimer != null && !sunProduceTimer.isRunning()) {
+            sunProduceTimer.start();
+        }
     }
-}
 }
