@@ -31,6 +31,7 @@ public class Collider extends JPanel {
             assignedPlant = plant;
             return true;
         }
+        plant.stop();
         return false;
     }
 
@@ -53,4 +54,5 @@ public class Collider extends JPanel {
     public boolean isInsideCollider(int tx) {
         return tx > getX() && tx < getX() + getWidth();
     }
+    
 }

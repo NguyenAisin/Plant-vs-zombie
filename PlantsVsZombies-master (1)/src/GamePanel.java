@@ -465,37 +465,44 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
 
         @Override
         public void actionPerformed(ActionEvent e) {
-            
-            
-            //da chinh sua va them
+
+            Collider current = colliders[x + y * 9];
+
+            // 1️⃣ Nếu là shovel → xóa cây
             if (activePlantingBrush == GameWindow.PlantType.Shovel) {
-                Collider c = colliders[x + y * 9];
-                if (c.getAssignedPlant() != null) {
-                c.removePlant();
-                }
+                current.removePlant();
                 activePlantingBrush = GameWindow.PlantType.None;
                 return;
             }
-            
+
+            // 2️⃣ Nếu ô đã có cây → không cho đặt
+            if (current.getAssignedPlant() != null) {
+                activePlantingBrush = GameWindow.PlantType.None;
+                return;
+            }
+
+            // 3️⃣ Đặt cây nếu đủ sun
             if (activePlantingBrush == GameWindow.PlantType.Sunflower) {
                 if (getSunScore() >= 50) {
-                    colliders[x + y * 9].setPlant(new Sunflower(GamePanel.this, x, y));
+                    current.setPlant(new Sunflower(GamePanel.this, x, y));
                     setSunScore(getSunScore() - 50);
                 }
             }
-            if (activePlantingBrush == GameWindow.PlantType.Peashooter) {
+
+            else if (activePlantingBrush == GameWindow.PlantType.Peashooter) {
                 if (getSunScore() >= 100) {
-                    colliders[x + y * 9].setPlant(new Peashooter(GamePanel.this, x, y));
+                    current.setPlant(new Peashooter(GamePanel.this, x, y));
                     setSunScore(getSunScore() - 100);
                 }
             }
 
-            if (activePlantingBrush == GameWindow.PlantType.FreezePeashooter) {
+            else if (activePlantingBrush == GameWindow.PlantType.FreezePeashooter) {
                 if (getSunScore() >= 175) {
-                    colliders[x + y * 9].setPlant(new FreezePeashooter(GamePanel.this, x, y));
+                    current.setPlant(new FreezePeashooter(GamePanel.this, x, y));
                     setSunScore(getSunScore() - 175);
                 }
             }
+
             activePlantingBrush = GameWindow.PlantType.None;
         }
     }
