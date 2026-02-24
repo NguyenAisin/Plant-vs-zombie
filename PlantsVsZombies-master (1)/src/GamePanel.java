@@ -15,6 +15,9 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
 
     private boolean finalWaveShown = false;
     private boolean showFinalWaveText = false;
+    private int zombieSpawnedCount = 0;
+    private final int MAX_ZOMBIES = 10;
+    
     private long finalWaveStartTime;
     private JButton shovelBtn;
     private Image bgImage;
@@ -219,24 +222,34 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         sunProducer.start();
 
         zombieProducer = new Timer(7000, (ActionEvent e) -> {
+        if (zombieSpawnedCount >= MAX_ZOMBIES) {
+                zombieProducer.stop();
+                return;
+            }
+
             Random rnd = new Random();
-            
 
             updateLevelLabel();
             progressBar.setMaximum(getLevelTarget());
 
             String[] Level = LevelData.LEVEL_CONTENT[Integer.parseInt(LevelData.LEVEL_NUMBER) - 1];
             int[][] LevelValue = LevelData.LEVEL_VALUE[Integer.parseInt(LevelData.LEVEL_NUMBER) - 1];
+
             int l = rnd.nextInt(5);
             int t = rnd.nextInt(100);
             Zombie z = null;
+
             for (int i = 0; i < LevelValue.length; i++) {
                 if (t >= LevelValue[i][0] && t <= LevelValue[i][1]) {
                     z = Zombie.getZombie(Level[i], GamePanel.this, l);
                 }
             }
+
             laneZombies.get(l).add(z);
-            addProgress(10);
+
+            zombieSpawnedCount++;
+            
+            addProgress(getLevelTarget() / MAX_ZOMBIES);
         });
         zombieProducer.start();
     }
@@ -368,14 +381,38 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             g2.drawString(text, x, y);
         }
         if (showFinalWaveText) {
+            Graphics2D g2 = (Graphics2D) g;
 
-            g.setFont(new Font("Arial", Font.BOLD, 60));
-            g.setColor(Color.RED);
+            String text = "FINAL WAVE";
 
-            g.drawString("FINAL WAVE", 400, 300);
+            Font font = new Font("Arial", Font.BOLD, 60);
+            g2.setFont(font);
 
+            FontMetrics fm = g2.getFontMetrics();
+            int textWidth = fm.stringWidth(text);
+
+            int x = (getWidth() - textWidth) / 2;
+            int y = getHeight() / 2;
+
+            java.awt.font.TextLayout tl =
+                    new java.awt.font.TextLayout(text, font, g2.getFontRenderContext());
+
+            Shape shape = tl.getOutline(null);
+
+            g2.translate(x, y);
+
+            // viền đen
+            g2.setColor(Color.BLACK);
+            g2.setStroke(new BasicStroke(4));
+            g2.draw(shape);
+
+            // fill đỏ
+            g2.setColor(Color.RED);
+            g2.fill(shape);
+
+            g2.translate(-x, -y);
             // Ẩn sau 3 giây
-            if (System.currentTimeMillis() - finalWaveStartTime > 3000) {
+            if (System.currentTimeMillis() - finalWaveStartTime > 4000) {
                 showFinalWaveText = false;
             }
         }
@@ -462,6 +499,9 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
 
     public void addProgress(int num) {
         progress += num;
+        if (progress > getLevelTarget()) {
+            progress = getLevelTarget();
+        }
         progressBar.setValue(progress);
 
         if (!finalWaveShown && progress >= getLevelTarget() * 0.8) {
@@ -554,7 +594,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     
     //Finish game
     private void finishLevel() {
-
+        
         stopGame();
 
         if ("1".equals(LevelData.LEVEL_NUMBER)) {
@@ -564,7 +604,8 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
 
             LevelData.write("2");
             progress = 0;
-
+            zombieSpawnedCount = 0;
+            
             GameWindow.gw.dispose();
             GameWindow.gw = new GameWindow();
 
@@ -573,9 +614,10 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             JOptionPane.showMessageDialog(this,
                     "LEVEL 2 Completed !!!\nYOU WIN 🎉");
 
-            progress = 0;
             LevelData.write("1");
-
+            progress = 0;
+            zombieSpawnedCount = 0;
+            
             GameWindow.gw.dispose();
             GameWindow.gw = new GameWindow();
         }
