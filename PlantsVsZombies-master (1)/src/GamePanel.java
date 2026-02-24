@@ -63,6 +63,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     private boolean isPaused = false;
     private Font pauseFont = new Font("Arial", Font.BOLD, 60);
     private boolean gameOver = false;
+    private boolean showGameOverText = false;
     
     private int sunScore;
     private JLabel sunScoreboard;
@@ -255,7 +256,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
 
         zombieProducer = new Timer(7000, (ActionEvent e) -> {
             if (zombieSpawnedCount >= MAX_ZOMBIES) {
-                return; // ❗ DỪNG SPAWN HOÀN TOÀN
+                return; // Zombie dừng spawn
             }
 
             Random rnd = new Random();
@@ -273,13 +274,13 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             for (int i = 0; i < LevelValue.length; i++) {
                 if (t >= LevelValue[i][0] && t <= LevelValue[i][1]) {
                     z = Zombie.getZombie(Level[i], GamePanel.this, l);
-                    break; // ❗ THÊM BREAK
+                    break;
                 }
             }
 
             if (z != null) {
                 laneZombies.get(l).add(z);
-                zombieSpawnedCount++;          // ❗ CHỈ tăng khi spawn thật sự
+                zombieSpawnedCount++;
                 addProgress(getLevelTarget() / MAX_ZOMBIES);
             }
         });
@@ -423,7 +424,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
 
             String text = "FINAL WAVE";
 
-            Font font = new Font("Arial", Font.BOLD, 75);
+            Font font = new Font("Arial", Font.BOLD, 90);
             g2.setFont(font);
 
             g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
@@ -458,6 +459,43 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             if (System.currentTimeMillis() - finalWaveStartTime > 4000) {
                 showFinalWaveText = false;
             }
+        }
+        
+        if (showGameOverText) {
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            String text = "ZOMBIES ATE YOUR BRAINS!";
+
+            Font font = new Font("Arial", Font.BOLD, 60);
+            g2.setFont(font);
+
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            FontMetrics fm = g2.getFontMetrics();
+            int textWidth = fm.stringWidth(text);
+
+            int lawnStartX = 60;
+            int lawnWidth = 9 * 100;
+            int lawnStartY = 110;
+            int lawnHeight = 5 * 120;
+
+            int x = lawnStartX + lawnWidth / 2 - textWidth / 2;
+            int y = lawnStartY + lawnHeight / 2;
+
+            TextLayout tl = new TextLayout(text, font, g2.getFontRenderContext());
+            Shape shape = tl.getOutline(
+                    AffineTransform.getTranslateInstance(x, y));
+
+            g2.setStroke(new BasicStroke(6f));
+            g2.setColor(Color.BLACK);
+            g2.draw(shape);
+
+            g2.setColor(new Color(180, 0, 0));
+            g2.fill(shape);
+
+            g2.dispose();
         }
     }
     
@@ -517,18 +555,23 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     }
     
     public void gameOver() {
+
         if (gameOver) return;
 
         gameOver = true;
+        showGameOverText = true;
 
         redrawTimer.stop();
         advancerTimer.stop();
         sunProducer.stop();
         zombieProducer.stop();
 
+        repaint(); // vẽ chữ trước
+
         JOptionPane.showMessageDialog(this,
                 "ZOMBIES ATE YOUR BRAIN!\nRestarting level");
 
+        // Sau khi bấm OK mới restart
         GameWindow.gw.dispose();
         GameWindow.gw = new GameWindow();
     }
