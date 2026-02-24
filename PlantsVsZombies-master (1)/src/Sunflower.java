@@ -13,6 +13,11 @@ public class Sunflower extends Plant {
     }
 
     private void produceSun() {
+
+        if (getGp().isPaused() || getGp().isLevelFinished() || getGp().isGameOver()) {
+            return;
+        }
+
         int pixelX = 60 + getX() * 100;
         int pixelY = 110 + getY() * 120;
 
@@ -28,4 +33,10 @@ public class Sunflower extends Plant {
             sunProduceTimer.stop();
         }
     }
+    
+    public void resume() {
+    if (sunProduceTimer != null && !sunProduceTimer.isRunning()) {
+        sunProduceTimer.start();
+    }
+}
 }

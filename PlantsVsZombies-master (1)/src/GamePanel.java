@@ -17,6 +17,21 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     private boolean showFinalWaveText = false;
     private int zombieSpawnedCount = 0;
     private final int MAX_ZOMBIES = 10;
+    private boolean waitingToFinish = false;
+    private long finishStartTime;
+    private boolean levelFinished = false;
+    
+    public boolean isPaused() {
+    return isPaused;
+    }
+
+    public boolean isLevelFinished() {
+        return levelFinished;
+    }
+
+    public boolean isGameOver() {
+        return gameOver;
+    }
     
     private long finalWaveStartTime;
     private JButton shovelBtn;
@@ -84,7 +99,15 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         //them
         progressBar = new JProgressBar(0, getLevelTarget()); 
         progressBar.setValue(0);
-        progressBar.setBounds(585, 10, 250, 25);
+        int barWidth = 250;
+        int barHeight = 25;
+
+        progressBar.setBounds(
+                1000 - barWidth - 20,   // cách mép phải 20px
+                752 - barHeight - 40,   // cách mép dưới 40px
+                barWidth,
+                barHeight
+        );
         progressBar.setStringPainted(true);
         add(progressBar);
         progressBar.setForeground(new Color(0, 200, 0)); // màu thanh
@@ -154,7 +177,12 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
 
         //hien thi man hien tai
         levelLabel = new JLabel();
-        levelLabel.setBounds(450, 10, 120, 25);
+        levelLabel.setBounds(
+            1000 - barWidth - 20,
+            752 - barHeight - 70,
+            barWidth,
+            25
+        );
         levelLabel.setForeground(Color.WHITE);
         levelLabel.setFont(new Font("Arial", Font.BOLD, 16));
         add(levelLabel);
@@ -171,7 +199,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         sunflowerImage = new ImageIcon(this.getClass().getResource("/images/plants/sunflower.gif")).getImage();
         peaImage = new ImageIcon(this.getClass().getResource("/images/pea.png")).getImage();
         freezePeaImage = new ImageIcon(this.getClass().getResource("/images/freezepea.png")).getImage();
-        
+        shovelImage = new ImageIcon(this.getClass().getResource("/images/shovel.png")).getImage();
         normalZombieImage = new ImageIcon(this.getClass().getResource("/images/zombies/zombie1.png")).getImage();
         coneHeadZombieImage = new ImageIcon(this.getClass().getResource("/images/zombies/zombie2.png")).getImage();
 
@@ -214,6 +242,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         advancerTimer.start();
 
         sunProducer = new Timer(5000, (ActionEvent e) -> {
+            if (levelFinished || gameOver) return;
             Random rnd = new Random();
             Sun sta = new Sun(this, rnd.nextInt(800) + 100, 0, rnd.nextInt(300) + 200);
             activeSuns.add(sta);
@@ -222,9 +251,8 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         sunProducer.start();
 
         zombieProducer = new Timer(7000, (ActionEvent e) -> {
-        if (zombieSpawnedCount >= MAX_ZOMBIES) {
-                zombieProducer.stop();
-                return;
+            if (zombieSpawnedCount >= MAX_ZOMBIES) {
+                return; // ❗ DỪNG SPAWN HOÀN TOÀN
             }
 
             Random rnd = new Random();
@@ -242,14 +270,15 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             for (int i = 0; i < LevelValue.length; i++) {
                 if (t >= LevelValue[i][0] && t <= LevelValue[i][1]) {
                     z = Zombie.getZombie(Level[i], GamePanel.this, l);
+                    break; // ❗ THÊM BREAK
                 }
             }
 
-            laneZombies.get(l).add(z);
-
-            zombieSpawnedCount++;
-            
-            addProgress(getLevelTarget() / MAX_ZOMBIES);
+            if (z != null) {
+                laneZombies.get(l).add(z);
+                zombieSpawnedCount++;          // ❗ CHỈ tăng khi spawn thật sự
+                addProgress(getLevelTarget() / MAX_ZOMBIES);
+            }
         });
         zombieProducer.start();
     }
@@ -264,8 +293,9 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
                 Zombie z = laneZombies.get(i).get(j);
                 z.advance();
 
-                if (z.getHealth() <= 0 || !z.isMoving()) {
+                if (z.getHealth() <= 0) {
                     laneZombies.get(i).remove(j);
+                    continue;
                 }
             }
 
@@ -284,8 +314,9 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         for (int i = 0; i < activeSuns.size(); i++) {
             activeSuns.get(i).advance();
         }
-                // Kiểm tra win
-        if (progress >= getLevelTarget()) {
+        
+        // Kiểm tra win
+        if (!levelFinished && zombieProducer.isRunning() == false) {
 
             boolean noZombieLeft = true;
 
@@ -297,7 +328,13 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             }
 
             if (noZombieLeft) {
-                finishLevel();
+                levelFinished = true;
+
+                repaint();
+
+                SwingUtilities.invokeLater(() -> {
+                    finishLevel();
+                });
             }
         }
     }
@@ -346,9 +383,6 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         //them
         if (activePlantingBrush == GameWindow.PlantType.Shovel) {
             g.drawImage(shovelImage, mouseX - 40, mouseY - 40, 80, 80, null);
-            shovelImage = new ImageIcon(
-            this.getClass().getResource("/images/shovel.png")
-            ).getImage();
         }
 
         //if(!"".equals(activePlantingBrush)){
@@ -495,7 +529,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         repaint();
     }
 
-    static int progress = 0;
+    private int progress = 0;
 
     public void addProgress(int num) {
         progress += num;
@@ -558,6 +592,17 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     public void setPaused(boolean paused) {
         isPaused = paused;
 
+        for (int i = 0; i < 45; i++) {
+            Collider c = colliders[i];
+            if (c.getAssignedPlant() instanceof Sunflower) {
+                if (paused) {
+                    ((Sunflower) c.getAssignedPlant()).stop();
+                } else {
+                    ((Sunflower) c.getAssignedPlant()).resume();
+                }
+            }
+        }
+
         if (paused) {
             redrawTimer.stop();
             advancerTimer.stop();
@@ -569,6 +614,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             sunProducer.start();
             zombieProducer.start();
         }
+
         repaint();
     }
     
@@ -590,6 +636,13 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     if (advancerTimer != null) advancerTimer.stop();
     if (zombieProducer != null) zombieProducer.stop();
     if (sunProducer != null) sunProducer.stop();
+    for (int i = 0; i < 45; i++) {
+        Collider c = colliders[i];
+        if (c.getAssignedPlant() instanceof Sunflower) {
+            ((Sunflower) c.getAssignedPlant()).stop();
+        }  
+    }
+    
     }
     
     //Finish game
