@@ -176,7 +176,25 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         add(shovelBtn, new Integer(2));
 
         shovelBtn.addActionListener(e -> {
+
             activePlantingBrush = GameWindow.PlantType.Shovel;
+
+            Toolkit toolkit = Toolkit.getDefaultToolkit();
+
+            // 🔥 Resize ảnh xuống 32x32
+            Image resized = shovelImage.getScaledInstance(
+                    32,
+                    32,
+                    Image.SCALE_SMOOTH
+            );
+
+            Cursor shovelCursor = toolkit.createCustomCursor(
+                    resized,
+                    new Point(16, 16), // tâm ảnh
+                    "Shovel Cursor"
+            );
+
+            setCursor(shovelCursor);
         });
 
         //hien thi man hien tai
@@ -551,11 +569,14 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             }
 
             activePlantingBrush = GameWindow.PlantType.None;
+            
+            setCursor(Cursor.getDefaultCursor());
+            return;
         }
     }
     
     public void gameOver() {
-
+        setCursor(Cursor.getDefaultCursor());
         if (gameOver) return;
 
         gameOver = true;
