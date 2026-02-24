@@ -10,11 +10,12 @@ import java.net.URL;
 import java.awt.Shape;
 import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
-
+import java.awt.event.MouseAdapter;
+import java.awt.image.BufferedImage;
 /**
  * Created by Armin on 6/25/2016.
  */
-public class GamePanel extends JLayeredPane implements MouseMotionListener {
+public class GamePanel extends JPanel implements MouseMotionListener {
 
     private boolean finalWaveShown = false;
     private boolean showFinalWaveText = false;
@@ -23,6 +24,8 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     private boolean waitingToFinish = false;
     private long finishStartTime;
     private boolean levelFinished = false;
+    private Shape finalWaveShape;
+    private Shape gameOverShape;
     
     public boolean isPaused() {
     return isPaused;
@@ -97,7 +100,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     public GamePanel(JLabel sunScoreboard) {
         setSize(1000, 752);
         setLayout(null);
-        
+        setDoubleBuffered(true);
         
         
         //them
@@ -140,7 +143,12 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         
         //nhan input tu chuot
         addMouseMotionListener(this);
-        
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                handleGridClick(e.getX(), e.getY());
+            }
+        });
         //Nut pause cua game
         JButton btnPause = new JButton("Pause");
         
@@ -177,25 +185,20 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
 
         shovelBtn.addActionListener(e -> {
 
-            activePlantingBrush = GameWindow.PlantType.Shovel;
+           activePlantingBrush = GameWindow.PlantType.Shovel;
 
-            Toolkit toolkit = Toolkit.getDefaultToolkit();
+           Toolkit toolkit = Toolkit.getDefaultToolkit();
 
-            // 🔥 Resize ảnh xuống 32x32
-            Image resized = shovelImage.getScaledInstance(
-                    32,
-                    32,
-                    Image.SCALE_SMOOTH
-            );
+           // Ẩn cursor hệ điều hành
+           Image image = toolkit.createImage(new byte[0]);
+           Cursor blankCursor = toolkit.createCustomCursor(
+                   image,
+                   new Point(0, 0),
+                   "blank"
+           );
 
-            Cursor shovelCursor = toolkit.createCustomCursor(
-                    resized,
-                    new Point(16, 16), // tâm ảnh
-                    "Shovel Cursor"
-            );
-
-            setCursor(shovelCursor);
-        });
+           setCursor(blankCursor);
+       });
 
         //hien thi man hien tai
         levelLabel = new JLabel();
@@ -238,24 +241,27 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         lanePeas.add(new ArrayList<>()); //line 3
         lanePeas.add(new ArrayList<>()); //line 4
         lanePeas.add(new ArrayList<>()); //line 5
-
+    
+        activeSuns = new ArrayList<>();
         colliders = new Collider[45];
-        for (int i = 0; i < 45; i++) {
-            Collider a = new Collider();
-            a.setLocation(44 + (i % 9) * 100, 109 + (i / 9) * 120);
-            a.setAction(new PlantActionListener((i % 9), (i / 9)));
-            colliders[i] = a;
-            add(a, new Integer(0));
-        }
+
+            colliders = new Collider[45];
+
+            for (int i = 0; i < 45; i++) {
+                colliders[i] = new Collider();
+            }
+        
+        redrawTimer = new Timer(16, (ActionEvent e) -> {
+            repaint();
+        });
+        redrawTimer.start();
 
         //colliders[0].setPlant(new FreezePeashooter(this,0,0));
 /*
         colliders[9].setPlant(new Peashooter(this,0,1));
         laneZombies.get(1).add(new NormalZombie(this,1));*/
 
-        activeSuns = new ArrayList<>();
-
-        redrawTimer = new Timer(25, (ActionEvent e) -> {
+        redrawTimer = new Timer(16, (ActionEvent e) -> {
             repaint();
         });
         redrawTimer.start();
@@ -303,6 +309,46 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             }
         });
         zombieProducer.start();
+    }
+    
+    private void handleGridClick(int mx, int my) {
+
+        int col = (mx - 44) / 100;
+        int row = (my - 109) / 120;
+
+        if (col < 0 || col >= 9 || row < 0 || row >= 5) return;
+
+        Collider current = colliders[col + row * 9];
+
+        // SHOVEL
+        if (activePlantingBrush == GameWindow.PlantType.Shovel) {
+            current.removePlant();
+            activePlantingBrush = GameWindow.PlantType.None;
+            setCursor(Cursor.getDefaultCursor());
+            repaint();
+            return;
+        }
+
+        if (current.getAssignedPlant() != null) return;
+
+        if (activePlantingBrush == GameWindow.PlantType.Sunflower && getSunScore() >= 50) {
+            current.setPlant(new Sunflower(this, col, row));
+            setSunScore(getSunScore() - 50);
+        }
+
+        else if (activePlantingBrush == GameWindow.PlantType.Peashooter && getSunScore() >= 100) {
+            current.setPlant(new Peashooter(this, col, row));
+            setSunScore(getSunScore() - 100);
+        }
+
+        else if (activePlantingBrush == GameWindow.PlantType.FreezePeashooter && getSunScore() >= 175) {
+            current.setPlant(new FreezePeashooter(this, col, row));
+            setSunScore(getSunScore() - 175);
+        }
+
+        activePlantingBrush = GameWindow.PlantType.None;
+        setCursor(Cursor.getDefaultCursor());
+        repaint();
     }
 
     private void advance() {
@@ -406,14 +452,6 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         if (activePlantingBrush == GameWindow.PlantType.Shovel) {
             g.drawImage(shovelImage, mouseX - 40, mouseY - 40, 80, 80, null);
         }
-
-        //if(!"".equals(activePlantingBrush)){
-        //System.out.println(activePlantingBrush);
-            /*if(activePlantingBrush == GameWindow.PlantType.Sunflower) {
-                g.drawImage(sunflowerImage,mouseX,mouseY,null);
-            }*/
-
-        //}
         
         //them: hieu ung cho man hinh pause
         if (isPaused) {
@@ -436,44 +474,17 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
 
             g2.drawString(text, x, y);
         }
-        if (showFinalWaveText) {
+        if (showFinalWaveText && finalWaveShape != null) {
 
-            Graphics2D g2 = (Graphics2D) g.create();
+            Graphics2D g2 = (Graphics2D) g;
 
-            String text = "FINAL WAVE";
-
-            Font font = new Font("Arial", Font.BOLD, 90);
-            g2.setFont(font);
-
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
-            FontMetrics fm = g2.getFontMetrics();
-            int textWidth = fm.stringWidth(text);
-
-            // Căn giữa
-            int lawnStartX = 60;
-            int lawnWidth = 9 * 100;
-            int lawnStartY = 110;
-            int lawnHeight = 5 * 120;
-
-            int x = lawnStartX + lawnWidth / 2 - textWidth / 2;
-            int y = lawnStartY + lawnHeight / 2;
-
-            TextLayout tl = new TextLayout(text, font, g2.getFontRenderContext());
-            Shape shape = tl.getOutline(AffineTransform.getTranslateInstance(x, y));
-
-            // Stroke
             g2.setStroke(new BasicStroke(6f));
             g2.setColor(Color.BLACK);
-            g2.draw(shape);
+            g2.draw(finalWaveShape);
 
-            // Fill đỏ
             g2.setColor(new Color(200, 0, 0));
-            g2.fill(shape);
+            g2.fill(finalWaveShape);
 
-            g2.dispose();
-            // Ẩn sau 4 giây
             if (System.currentTimeMillis() - finalWaveStartTime > 4000) {
                 showFinalWaveText = false;
             }
@@ -606,7 +617,6 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     public void mouseMoved(MouseEvent e) {
         mouseX = e.getX();
         mouseY = e.getY();
-        repaint();
     }
 
     private int progress = 0;
@@ -622,10 +632,39 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
             finalWaveShown = true;
             showFinalWaveText = true;
             finalWaveStartTime = System.currentTimeMillis();
+
+            createFinalWaveShape();
         }
         if (progress >= getLevelTarget()) {
             zombieProducer.stop();
         }
+    }
+    
+    private void createFinalWaveShape() {
+
+        String text = "FINAL WAVE";
+        Font font = new Font("Arial", Font.BOLD, 90);
+
+        BufferedImage img = new BufferedImage(1,1,BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = img.createGraphics();
+        g2.setFont(font);
+
+        FontMetrics fm = g2.getFontMetrics();
+        int textWidth = fm.stringWidth(text);
+
+        int lawnStartX = 60;
+        int lawnWidth = 9 * 100;
+        int lawnStartY = 110;
+        int lawnHeight = 5 * 120;
+
+        int x = lawnStartX + lawnWidth / 2 - textWidth / 2;
+        int y = lawnStartY + lawnHeight / 2;
+
+        TextLayout tl = new TextLayout(text, font, g2.getFontRenderContext());
+        finalWaveShape = tl.getOutline(
+                AffineTransform.getTranslateInstance(x, y));
+
+        g2.dispose();
     }
 
     public GameWindow.PlantType getActivePlantingBrush() {
@@ -684,6 +723,8 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
         }
 
         if (paused) {
+            setCursor(Cursor.getDefaultCursor()); 
+            
             redrawTimer.stop();
             advancerTimer.stop();
             sunProducer.stop();
@@ -727,7 +768,7 @@ public class GamePanel extends JLayeredPane implements MouseMotionListener {
     
     //Finish game
     private void finishLevel() {
-        
+        setCursor(Cursor.getDefaultCursor());
         stopGame();
 
         if ("1".equals(LevelData.LEVEL_NUMBER)) {
